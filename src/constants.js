@@ -1,0 +1,1 @@
+export const DB_NAME = 'Tourist_Safety_Monitoring_System';
