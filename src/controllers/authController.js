@@ -1,130 +1,187 @@
-import asyncHandler from "../utils/asyncHandler.js";
-import ApiError from "../utils/ApiError.js";
-import ApiResponse from "../utils/ApiResponse.js";
-import User from "../models/user.model.js";
+
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import User from "../models/user.model.js";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+} from "../utils/generateTokens.js";
 
 
-//  TOKEN GENERATOR 
-
-export const generateAccessTokenAndRefreshToken = async (userId) => {
-    try {
-        const user = await User.findById(userId)
-        if (!user) {
-            throw new Error("User not found")
-        }
-
-        const accessToken = user.generateAccessToken()
-
-        const refreshToken = user.generateRefreshToken()
-
-        user.refreshToken = refreshToken
-        await user.save({ validateBeforeSave: false })
-
-        // 🔥 MUST return both
-        return { accessToken, refreshToken }
-
-    } catch (error) {
-        console.error("TOKEN GENERATION ERROR:", error)
-        throw new Error("Failed to generate tokens")
-    }
-}
-
-//  REGISTER
-export const registerUser = asyncHandler(async (req, res) => {
-
-    const { name, email, password, role } = req.body;
-
-    if (!name || !email || !password) {
-        throw new ApiError(400, "All fields are required");
-    }
+// Register
+export const registerUser = async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      phone,
+      password,
+      role,
+      language,
+    } = req.body;
 
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
-        throw new ApiError(409, "User already exists");
+      return res.status(400).json({
+        message: "User already exists",
+      });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-        name,
-        email,
-        password,
-        role: role || "tourist"
+      name,
+      email,
+      phone,
+      password: hashedPassword,
+      role,
+      language,
     });
 
-    return res.status(201).json(
-        new ApiResponse(201, {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role
-        }, "User registered successfully")
-    );
-});
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
 
-//  LOGIN 
-export const loginUser = asyncHandler(async (req, res) => {
 
+// Login
+export const loginUser = async (req, res) => {
+  try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-        throw new ApiError(400, "Email and password required");
-    }
 
     const user = await User.findOne({ email });
 
     if (!user) {
-        throw new ApiError(404, "User not found");
+      return res.status(404).json({
+        message: "User not found",
+      });
     }
 
-    const cleanPassword = password.trim(); // 🔥 remove spaces
-
-
-    const isMatch = await bcrypt.compare(cleanPassword, user.password);
-
-
-    // console.log("Entered:", cleanPassword);
-    // console.log("Stored:", user.password);
-
-    // console.log("Match:", isMatch);
-
-
-
-    if (!isMatch) {
-        throw new ApiError(401, "Invalid credentials");
-    }
-
-
-
-
-    // ✅ FIX: use await + correct param
-    const { accessToken, refreshToken } =
-        await generateAccessTokenAndRefreshToken(user._id);
-
-    return res.status(200).json(
-        new ApiResponse(200, {
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            },
-            accessToken,
-            refreshToken
-        }, "Login successful")
+    const isPasswordCorrect = await bcrypt.compare(
+      password,
+      user.password
     );
-});
 
-//  LOGOUT 
-export const logoutUser = asyncHandler(async (req, res) => {
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
 
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    res
+      .cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: false,
+      })
+      .cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: false,
+      })
+      .status(200)
+      .json({
+        success: true,
+        message: "Login successful",
+        accessToken,
+        refreshToken,
+        user,
+      });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+
+// Logout
+export const logoutUser = async (req, res) => {
+  try {
     await User.findByIdAndUpdate(req.user._id, {
-        $unset: { refreshToken: 1 }
+      refreshToken: "",
     });
 
-    return res.status(200).json(
-        new ApiResponse(200, {}, "Logged out successfully")
+    res
+      .clearCookie("accessToken")
+      .clearCookie("refreshToken")
+      .status(200)
+      .json({
+        success: true,
+        message: "Logout successful",
+      });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+
+// Refresh Token
+export const refreshAccessToken = async (req, res) => {
+  try {
+    const incomingRefreshToken =
+      req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!incomingRefreshToken) {
+      return res.status(401).json({
+        message: "Refresh token missing",
+      });
+    }
+
+    const decoded = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
     );
-});
+
+    const user = await User.findById(decoded._id);
+
+    if (
+      !user ||
+      user.refreshToken !== incomingRefreshToken
+    ) {
+      return res.status(401).json({
+        message: "Invalid refresh token",
+      });
+    }
+
+    const newAccessToken = generateAccessToken(user._id);
+
+    res
+      .cookie("accessToken", newAccessToken, {
+        httpOnly: true,
+        secure: false,
+      })
+      .status(200)
+      .json({
+        success: true,
+        accessToken: newAccessToken,
+      });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+
+// Get Profile
+export const getProfile = async (req, res) => {
+  res.status(200).json({
+    success: true,
+    user: req.user,
+  });
+};

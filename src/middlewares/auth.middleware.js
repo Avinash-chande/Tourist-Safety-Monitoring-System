@@ -45,3 +45,14 @@ export const isTourist = (req, res, next) => {
     }
     next();
 };
+
+// Police only
+export const isPolice = (req, res, next) => {
+  if (req.user.role !== "police") {
+    return res.status(403).json({
+      message: "Police access only",
+    });
+  }
+
+  next();
+};

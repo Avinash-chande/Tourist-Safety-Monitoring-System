@@ -1,10 +1,26 @@
+
 import express from "express";
-import { verifyJWT, isTourist } from "../middlewares/auth.middleware.js";
-import { getAllTourists, updateLocation, getTouristById } from "../controllers/touristController.js";
+
+import {
+    uploadKYC,
+    generateTouristID,
+    addItinerary,
+    panicAlert,
+    shareLiveLocation,
+    getNotifications,
+} from "../controllers/touristIDController.js";
+
+import {
+    verifyJWT,
+    isTourist,
+} from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/location", verifyJWT, isTourist, updateLocation);
-router.get("/:id", verifyJWT, isTourist, getTouristById);
-
+router.post("/upload-kyc", verifyJWT, isTourist, uploadKYC);
+router.post("/generate-id", verifyJWT, isTourist, generateTouristID);
+router.post("/add-itinerary", verifyJWT, isTourist, addItinerary);
+router.post("/panic-alert", verifyJWT, isTourist, panicAlert);
+router.post("/live-location", verifyJWT, isTourist, shareLiveLocation);
+router.get("/notifications", verifyJWT, isTourist, getNotifications);
 export default router;
