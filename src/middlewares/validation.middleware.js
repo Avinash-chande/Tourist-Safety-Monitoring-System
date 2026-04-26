@@ -1,4 +1,3 @@
-// middlewares/validation.middleware.js
 export const validateRegister = (req, res, next) => {
   const {
     name,
