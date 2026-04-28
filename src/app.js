@@ -21,13 +21,13 @@ const app = express();
 
 app.use(helmet()); // Security headers
 
-app.use(compression()); // Faster response
+app.use(compression()); // Faster responses
 
-app.use(hpp()); // Prevent parameter pollution
+app.use(hpp()); // Prevent parameter pollution attacks
 
-app.use(xss()); // Prevent XSS attacks
+app.use(xss()); // Prevent XSS attacks 
 
-app.use(morgan("dev")); // Logging
+app.use(morgan("dev")); // Logging HTTP requests
 
 app.use(rateLimiter); // Rate limit protection
 
