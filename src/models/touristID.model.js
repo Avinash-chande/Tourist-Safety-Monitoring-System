@@ -41,6 +41,10 @@ const touristIDSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    documentUrl: {
+      type: String,
+      default: "",
+    }
   },
   {
     timestamps: true,

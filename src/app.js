@@ -1,4 +1,3 @@
-// app.js
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
@@ -9,11 +8,13 @@ import hpp from "hpp";
 import xss from "xss-clean";
 import morgan from "morgan";
 
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./config/swagger.js";
+
 import rateLimiter from "./middlewares/rateLimit.middleware.js";
 import errorHandler from "./middlewares/error.middleware.js";
 
 const app = express();
-
 
 
 // Security Middlewares
@@ -50,6 +51,15 @@ app.use(express.static("public"));
 app.use(cookieParser());
 
 
+// Swagger Documentation Route
+
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec)
+);
+
+
 // Test Route
 
 app.get("/", (req, res) => {
@@ -58,22 +68,17 @@ app.get("/", (req, res) => {
 
 
 // Import Routes
-
-import userRouter from "./routes/user.routes.js";
+import authRouter from "./routes/auth.routes.js";
 import touristRouter from "./routes/tourist.routes.js";
-import dashboardRouter from "./routes/dashboard.routes.js";
-import alertRouter from "./routes/alert.routes.js";
+import adminRouter from "./routes/admin.routes.js";
+import policeRouter from "./routes/police.routes.js";
 
 
 // Declare Routes
-
-app.use("/api/v1/users", userRouter);
-
-app.use("/api/v1/tourists", touristRouter);
-
-app.use("/api/v1/dashboard", dashboardRouter);
-
-app.use("/api/v1/alerts", alertRouter);
+app.use("/api/v1/users", authRouter);
+app.use("/api/v1/tourist", touristRouter);
+app.use("/api/v1/admin", adminRouter);
+app.use("/api/v1/police", policeRouter);
 
 
 // Global Error Handler

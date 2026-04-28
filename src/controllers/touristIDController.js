@@ -1,15 +1,32 @@
-// controllers/tourist.controller.js
-
 import TouristID from "../models/TouristID.js";
 import Alert from "../models/Alert.js";
 import User from "../models/user.model.js";
-
+import uploadOnCloudinary from "../utils/uploadOnCloudinary.js";
 
 // Upload KYC
 export const uploadKYC = async (req, res) => {
   try {
     const { aadhaarNumber, passportNumber } = req.body;
 
+    // Check file exists
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Document file is required",
+      });
+    }
+
+    // Upload file to Cloudinary
+    const uploadedFile = await uploadOnCloudinary(
+      req.file.path
+    );
+
+    if (!uploadedFile) {
+      return res.status(500).json({
+        message: "File upload failed",
+      });
+    }
+
+    // Save in MongoDB
     const touristId = await TouristID.create({
       user: req.user._id,
       aadhaarNumber,
@@ -17,6 +34,9 @@ export const uploadKYC = async (req, res) => {
       validity: new Date(
         new Date().setMonth(new Date().getMonth() + 1)
       ),
+
+      // Save Cloudinary file URL
+      documentUrl: uploadedFile.secure_url,
     });
 
     res.status(201).json({
@@ -30,7 +50,6 @@ export const uploadKYC = async (req, res) => {
     });
   }
 };
-
 
 // Generate Tourist ID
 export const generateTouristID = async (req, res) => {
@@ -61,7 +80,6 @@ export const generateTouristID = async (req, res) => {
     });
   }
 };
-
 
 // Add Itinerary
 export const addItinerary = async (req, res) => {
@@ -104,7 +122,6 @@ export const addItinerary = async (req, res) => {
   }
 };
 
-
 // Panic Button
 export const panicAlert = async (req, res) => {
   try {
@@ -137,7 +154,6 @@ export const panicAlert = async (req, res) => {
   }
 };
 
-
 // Live Location
 export const shareLiveLocation = async (req, res) => {
   try {
@@ -162,7 +178,6 @@ export const shareLiveLocation = async (req, res) => {
     });
   }
 };
-
 
 // Notifications
 export const getNotifications = async (req, res) => {
